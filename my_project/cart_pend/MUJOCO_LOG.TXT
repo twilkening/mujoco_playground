@@ -1,0 +1,72 @@
+Sun Jul 27 21:12:29 2025
+ERROR: Load model error: ParseXML: Error opening file 'pendulum.xml': No such file or directory
+
+Sun Jul 27 21:14:43 2025
+ERROR: Load model error: XML Error: Schema violation: unrecognized attribute: 'sensornoise'
+Element 'flag', line 3
+
+
+Sun Jul 27 22:24:24 2025
+ERROR: Load model error: XML Error: Schema violation: unrecognized element
+Element 'options', line 2
+
+
+Sun Jul 27 22:24:48 2025
+ERROR: Load model error: XML Error: Schema violation: unrecognized attribute: 'energy'
+Element 'option', line 2
+
+
+Sun Jul 27 22:25:28 2025
+ERROR: Load model error: XML Error: invalid keyword: 'true'
+Element 'flag', line 3
+
+
+Sun Jul 27 22:28:35 2025
+ERROR: Load model error: XML parse error 14:
+Error=XML_ERROR_MISMATCHED_ELEMENT ErrorID=14 (0xe) Line number=1: XMLElement name=mujoco
+
+
+Sun Jul 27 22:28:45 2025
+ERROR: Load model error: XML parse error 14:
+Error=XML_ERROR_MISMATCHED_ELEMENT ErrorID=14 (0xe) Line number=1: XMLElement name=mujoco
+
+
+Sat Aug 23 07:35:11 2025
+WARNING: Nan, Inf or huge value in QACC at DOF 0. The simulation is unstable. Time = 1.1720.
+
+Sat Aug 23 07:35:16 2025
+WARNING: Nan, Inf or huge value in QACC at DOF 0. The simulation is unstable. Time = 2.3880.
+
+Sat Aug 23 07:35:51 2025
+WARNING: Nan, Inf or huge value in QACC at DOF 0. The simulation is unstable. Time = 0.2860.
+
+Sat Aug 23 08:13:12 2025
+WARNING: Nan, Inf or huge value in QACC at DOF 3. The simulation is unstable. Time = 0.5800.
+
+Sat Aug 23 08:55:44 2025
+WARNING: Nan, Inf or huge value in QACC at DOF 0. The simulation is unstable. Time = 1.4160.
+
+Sat Aug 23 09:08:35 2025
+WARNING: Nan, Inf or huge value in QACC at DOF 1. The simulation is unstable. Time = 3.6440.
+
+Sat Aug 23 09:13:28 2025
+WARNING: Nan, Inf or huge value in QACC at DOF 3. The simulation is unstable. Time = 2.2460.
+
+Sat Aug 23 09:40:37 2025
+WARNING: Nan, Inf or huge value in QACC at DOF 0. The simulation is unstable. Time = 0.4420.
+
+Sat Aug 23 10:12:32 2025
+WARNING: Nan, Inf or huge value in QACC at DOF 0. The simulation is unstable. Time = 5.0360.
+
+Sat Aug 23 10:17:29 2025
+WARNING: Nan, Inf or huge value in QACC at DOF 0. The simulation is unstable. Time = 0.3240.
+
+Sat Aug 23 10:17:44 2025
+WARNING: Nan, Inf or huge value in QACC at DOF 0. The simulation is unstable. Time = 2.6780.
+
+Sat Aug 23 10:21:02 2025
+WARNING: Nan, Inf or huge value in QACC at DOF 0. The simulation is unstable. Time = 2.5160.
+
+Sat Aug 23 10:21:35 2025
+WARNING: Nan, Inf or huge value in QACC at DOF 0. The simulation is unstable. Time = 2.5320.
+

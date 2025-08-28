@@ -1,0 +1,58 @@
+<mujoco>
+    <option timestep="0.001" integrator="RK4">
+        <flag energy="enable" contact="enable"/>
+    </option>
+    <default>
+        <geom friction="1 0.005 0.0001"/>
+    </default>
+    <worldbody>
+        <light diffuse=".5 .5 .5" pos="0 1 3" dir="0 -0.1 -1"/>
+        <geom type="plane" size="2 2 0.1" rgba=".9 0 0 1" condim="3"/>
+        <!-- Root body for planar movement -->
+        <body name="cart" pos="0 0 0.15">
+            <!-- <joint type="free"/> -->
+            <joint name="cart_x" type="slide" axis="1 0 0" pos="0 0 0"/>
+            <joint name="cart_y" type="slide" axis="0 1 0" pos="0 0 0"/>
+            <joint name="cart_yaw" type="hinge" axis="0 0 1" pos="0 0 0"/>
+            <joint name="cart_pitch" type="hinge" axis="1 0 0" pos="0 0 -0.1"/>
+            <!-- Pendulum block (main body) -->
+            <body name="pendulum" pos="0 0 0.025">
+                <geom type="box" size="0.05 0.01 0.125" rgba="0 0.5 1 1" mass="0.5"/>
+                <!-- Left wheel attached to pendulum -->
+                <body name="left_wheel" pos="-0.06 0 -0.125" euler="0 90 0">
+                    <joint name="left_wheel_hinge" type="hinge" axis="0 0 -1" pos="0 0 0"/>
+                    <geom type="cylinder" size="0.05 0.005" rgba="0 0 0 1" mass="0.01" friction="1 0.005 0.0001" condim="3"/>
+                </body>
+                <!-- Right wheel attached to pendulum -->
+                <body name="right_wheel" pos="0.06 0 -0.125" euler="0 90 0">
+                    <joint name="right_wheel_hinge" type="hinge" axis="0 0 1" pos="0 0 0"/>
+                    <geom type="cylinder" size="0.05 0.005" rgba="0 0 0 1" mass="0.01" friction="1 0.005 0.0001" condim="3"/>
+                </body>
+            </body>
+        </body>
+        <body name="blockYpos" pos="0 2 0">
+            <geom type="box" size="0.5 0.5 0.5" pos="0 0 0.5" rgba="1 0.5 0 1" mass="5"/>
+        </body>
+        <body name="blockYneg" pos="0 -2 0">
+            <geom type="box" size="0.5 0.5 0.5" pos="0 0 0.5" rgba="1 0.5 0 1" mass="5"/>
+        </body>
+    </worldbody>
+    <actuator>
+        <motor joint="left_wheel_hinge" name="left_motor" gear="1" ctrllimited="true" ctrlrange="-10 10"/>
+        <motor joint="right_wheel_hinge" name="right_motor" gear="1" ctrllimited="true" ctrlrange="-10 10"/>
+    </actuator>
+    <sensor>
+        <!-- <jointpos joint="cart_x"/>
+        <jointvel joint="cart_x"/>
+        <jointpos joint="cart_y"/>
+        <jointvel joint="cart_y"/>
+        <jointpos joint="cart_yaw"/>
+        <jointvel joint="cart_yaw"/> -->
+        <jointpos name="cart_pitch_pos" joint="cart_pitch"/>
+        <jointvel name="cart_pitch_vel" joint="cart_pitch"/>
+        <jointpos name="left_wheel_pos" joint="left_wheel_hinge"/>
+        <jointvel name="left_wheel_vel" joint="left_wheel_hinge"/>
+        <jointpos name="right_wheel_pos" joint="right_wheel_hinge"/>
+        <jointvel name="right_wheel_vel" joint="right_wheel_hinge"/>
+    </sensor>
+</mujoco>

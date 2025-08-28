@@ -1,0 +1,14 @@
+Sun Jul 20 19:47:32 2025
+ERROR: Load model error: ParseXML: Error opening file 'hello.xml': No such file or directory
+
+Sun Jul 20 21:15:07 2025
+WARNING: Nan, Inf or huge value in QACC at DOF 0. The simulation is unstable. Time = 0.0400.
+
+Sun Jul 20 21:15:48 2025
+WARNING: Nan, Inf or huge value in QACC at DOF 0. The simulation is unstable. Time = 0.0550.
+
+Wed Jul 23 08:57:08 2025
+ERROR: Load model error: XML Error: Schema violation: unrecognized attribute: 'body'
+Element 'touch', line 19
+
+

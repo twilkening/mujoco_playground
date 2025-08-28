@@ -1,0 +1,33 @@
+Sun Jul 27 21:12:29 2025
+ERROR: Load model error: ParseXML: Error opening file 'pendulum.xml': No such file or directory
+
+Sun Jul 27 21:14:43 2025
+ERROR: Load model error: XML Error: Schema violation: unrecognized attribute: 'sensornoise'
+Element 'flag', line 3
+
+
+Sun Jul 27 22:24:24 2025
+ERROR: Load model error: XML Error: Schema violation: unrecognized element
+Element 'options', line 2
+
+
+Sun Jul 27 22:24:48 2025
+ERROR: Load model error: XML Error: Schema violation: unrecognized attribute: 'energy'
+Element 'option', line 2
+
+
+Sun Jul 27 22:25:28 2025
+ERROR: Load model error: XML Error: invalid keyword: 'true'
+Element 'flag', line 3
+
+
+Sun Jul 27 22:28:35 2025
+ERROR: Load model error: XML parse error 14:
+Error=XML_ERROR_MISMATCHED_ELEMENT ErrorID=14 (0xe) Line number=1: XMLElement name=mujoco
+
+
+Sun Jul 27 22:28:45 2025
+ERROR: Load model error: XML parse error 14:
+Error=XML_ERROR_MISMATCHED_ELEMENT ErrorID=14 (0xe) Line number=1: XMLElement name=mujoco
+
+

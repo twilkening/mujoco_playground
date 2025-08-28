@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "vector": "cpp",
+        "stdio.h": "c",
+        "mujoco.h": "c"
+    }
+}

@@ -1,0 +1,151 @@
+<mujoco>
+    <compiler meshdir="meshes" />
+
+    <!-- Mass Properties:
+    m_motor = 9.5*2/1000; % [kg] documentation
+    m_bump = 35/1000; % [kg] documentation (4 bumpers total, each 8.75g)
+    m_batt = 138/1000; % [kg] measured (6 AA batteries total, each 23g)
+    m_wheels = 39.7/1000; % [kg] documentation (2 wheels total, each 19.85g)
+    m_cb = 106.3; % (200/1000 - m_motor - m_bump - m_wheels); % [kg] measured value - includes the chassis
+    -->
+
+    <default>
+        <mesh scale="0.001 0.001 0.001" />
+        <default class="chassis">
+            <geom pos="0 0 0" euler="0 0 0" rgba="1 1 1 1" mass="0" />
+        </default>
+        <default class="bumper">
+            <geom  pos="0 0 0" euler="0 0 0" rgba="0.5 0.5 0.5 1" mass="0.00875" />
+        </default>
+        <default class="batteryA">
+            <geom pos="0 0 0" euler="0 -90 0" rgba="1 1 0 1" mass="0.023" />
+        </default>
+        <default class="batteryB">
+            <geom pos="0 0 0" euler="0 90 0" rgba="1 1 0 1" mass="0.023" />
+        </default>
+        <default class="left_wheel">
+            <geom  pos="0 0 0" euler="0 0 0" rgba="0 0 0 1" mass="0.01985" />
+        </default>
+        <default class="right_wheel">
+            <geom  pos="0 0 0" euler="0 0 180" rgba="0 0 0 1" mass="0.01985" />
+        </default>
+    </default>
+
+    <asset>
+        <mesh name="chassis03" file="chassis03.stl" />
+        <mesh name="wheel" file="wheel_black.stl" />
+        <mesh name="cover" file="battery-cover.stl" />
+        <mesh name="cb" file="bal01a01.stl" />
+        <mesh name="battery" file="AAbattery.stl" />
+        <mesh name="bumper" file="bumper_skid.stl" />
+    </asset>
+
+    <!-- Floor -->
+    <worldbody>
+        <body name="floor">
+            <geom name="floor" type="plane" size="1 1 0.001" />
+        </body>
+    </worldbody>
+
+    <worldbody>
+        <!-- initiate cart origin at height of cart wheel axis -->
+        <body name="cart" pos="0 0 0.04" > 
+            <joint name="cart_free_joint" type="free" />
+            
+            <!-- Chassis  -->
+            <body name="chassis" pos="0 -0.00972 0.02" euler="90 0 0" >
+                <geom name="chassis" type="mesh" class="chassis" mass="0.1003" mesh="chassis03" contype="0" conaffinity="0" />
+                <!-- Cart Frame, x-axis aligned with wheel axis, z-axis aligned with pendulum length -->
+                <site name="cart_frame" pos="0 -0.02 -0.00972" euler="-90 0 0" type="cylinder" size="0.001 0.001 0.001"/>
+            </body>
+            <!-- Chassis Cover  -->
+            <body name="chassis_cover" pos="0 0.009 0.021" euler="180 0 180" >
+                <geom name="chassis_cover" type="mesh" class="chassis" mass="0.005" mesh="cover" contype="0" conaffinity="0" />
+            </body>
+            <!-- Circuit Board  -->
+            <body name="cb" pos="0 -0.00975 0" euler="90 0 0" >
+                <geom name="cb" type="mesh" class="chassis" mass="0.020" mesh="cb" contype="0" conaffinity="0" rgba="0.5 0.5 0.5 1"/>
+            </body>
+            <!-- Bumpers -->
+            <body name="bumper1" pos="0.043 0.01 0.11" euler="-90 0 0" >
+                <geom name="bumper1" type="mesh" class="bumper" mesh="bumper" contype="1" conaffinity="1"/>
+            </body>
+            <body name="bumper2" pos="0.043 -0.01 0.11" euler="-90 180 0" >
+                <geom name="bumper2" type="mesh" class="bumper" mesh="bumper" contype="1" conaffinity="1"/>
+            </body>
+            <body name="bumper3" pos="-0.043 0.01 0.11" euler="-90 0 0" >
+                <geom name="bumper3" type="mesh" class="bumper" mesh="bumper" contype="1" conaffinity="1"/>
+            </body>
+            <body name="bumper4" pos="-0.043 -0.01 0.11" euler="-90 180 0" >
+                <geom name="bumper4" type="mesh" class="bumper" mesh="bumper" contype="1" conaffinity="1"/>
+            </body>
+            <!-- Batteries -->
+            <body name="battery1" pos="0 0 0.0575" euler="0 0 0" >
+                <geom name="battery1" type="mesh" class="batteryA" mesh="battery" contype="0" conaffinity="0" />
+            </body>
+            <body name="battery2" pos="0 0 0.0425" euler="0 0 0" >
+                <geom name="battery2" type="mesh" class="batteryB" mesh="battery" contype="0" conaffinity="0" />
+            </body>
+            <body name="battery3" pos="0 0 0.0275" euler="0 0 0" >
+                <geom name="battery3" type="mesh" class="batteryA" mesh="battery" contype="0" conaffinity="0" />
+            </body>
+            <body name="battery4" pos="0 0 0.0125" euler="0 0 0" >
+                <geom name="battery4" type="mesh" class="batteryB" mesh="battery" contype="0" conaffinity="0" />
+            </body>
+            <body name="battery5" pos="0 0 -0.0025" euler="0 0 0" >
+                <geom name="battery5" type="mesh" class="batteryA" mesh="battery" contype="0" conaffinity="0" />
+            </body>
+            <body name="battery6" pos="0 0 -0.0175" euler="0 0 0" >
+                <geom name="battery6" type="mesh" class="batteryB" mesh="battery" contype="0" conaffinity="0" />
+            </body>
+            <!-- Wheels -->
+            <body name="left_wheel" pos="0.051 0 0">
+                <joint name="left_wheel_hinge" type="hinge" axis="1 0 0" pos="0 0 0"/>
+                <geom name="left_wheel" type="mesh" class="left_wheel" mesh="wheel" contype="1" conaffinity="1" />
+            </body>
+            <body name="right_wheel" pos="-0.051 0 0">
+                <joint name="right_wheel_hinge" type="hinge" axis="-1 0 0" pos="0 0 0"/>
+                <geom name="right_wheel" type="mesh" class="right_wheel" mesh="wheel" contype="1" conaffinity="1" />
+            </body>
+
+        </body>
+
+    </worldbody>
+
+    <worldbody>
+        <body name="blockYpos" pos="0 1 0">
+            <geom type="box" size="0.2 0.2 0.2" pos="0 0 0.2" rgba="1 0.5 0 1" mass="5"/>
+        </body>
+        <body name="blockYneg" pos="0 -1 0">
+            <geom type="box" size="0.2 0.2 0.2" pos="0 0 0.2" rgba="1 0.5 0 1" mass="5"/>
+        </body>
+    </worldbody>
+
+    <!-- we don't need any equalities right now... but may be useful in the future for the wheel to chassis interface -->
+    <!-- <equality>
+        <connect site1="gear_left_site" site2="gripper_left_site" />
+        <connect site1="pivot_left_site" site2="gripper_left_site2" />
+        <connect site1="gear_right_site" site2="gripper_right_site" />
+        <connect site1="pivot_right_site" site2="gripper_right_site2" />
+    </equality -->
+
+    <actuator>
+        <motor joint="left_wheel_hinge" name="left_motor" gear="1" ctrllimited="true" ctrlrange="-10 10"/>
+        <motor joint="right_wheel_hinge" name="right_motor" gear="1" ctrllimited="true" ctrlrange="-10 10"/>
+    </actuator>
+    <sensor>
+        <framequat name="cart_quat" objtype="site" objname="cart_frame"/>
+        <framepos name="cart_pos" objtype="site" objname="cart_frame"/>
+        <!-- <framelinvel name="cart_linvel" objtype="site" objname="cart_frame"/> -->
+        <!-- Gyro [perfect sensing, noise is input later] -->
+        <gyro name="gyro" site="cart_frame" noise="0.001"/>
+        <!-- Accelerometer [perfect sensing, noise is input later] -->
+        <accelerometer name="accel" site="cart_frame" noise="0.001"/>
+        <!-- <frameangaccl name="cart_angacc" objtype="site" objname="cart_frame"/> -->
+        <jointpos name="left_wheel_pos" joint="left_wheel_hinge"/>
+        <jointvel name="left_wheel_vel" joint="left_wheel_hinge"/>
+        <jointpos name="right_wheel_pos" joint="right_wheel_hinge"/>
+        <jointvel name="right_wheel_vel" joint="right_wheel_hinge"/>
+    </sensor>
+
+</mujoco>

@@ -1,0 +1,25 @@
+<mujoco>
+	<!-- <option timestep="0.005" gravity="0 0 -9.81" integrator="RK4"/> -->
+	<compiler angle="degree" />
+	<worldbody>
+        <light diffuse=".5 .5 .5" pos="0 0 3" dir="0 0 -1"/>
+		<geom type="plane" size="1 1 0.1" rgba=".9 0 0 1"/>
+		<body name="pendulum" pos="0 0 1" euler="0 180 0">
+			<joint name ="pin" type="hinge" pos="0 0 0.3" axis="0 1 0"/>
+			<geom type="cylinder" size=".05 .3" rgba="0 .9 0 1" mass="1"/>
+		</body>
+	</worldbody>
+	<actuator>
+		<motor joint="pin" name="torque" ctrlrange="-10 10" ctrllimited="true"/>
+		<position name="position_servo" joint="pin" kp="5" />
+		<velocity name="velocity_servo" joint="pin" kv="0" /> <!-- kv is the velocity gain... in lieu of D control -->
+		<!-- ctrllimited is T/F. we define the range via ctrlrange, which is [0 0] by default -->
+	</actuator>
+	<sensor>
+		<jointpos name="jointpos" joint="pin" noise="0.1"/>
+		<jointvel name="jointvel" joint="pin" noise="1"/>
+		<!-- <touch name="touch" body="body" /> -->
+		<!-- <jointtorque name="jointtorque" joint="hinge"/>
+		<force name="force" body="body"/> -->
+	</sensor>
+</mujoco>

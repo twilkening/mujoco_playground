@@ -1,0 +1,4 @@
+reset
+make clean
+make
+./cart_pend
