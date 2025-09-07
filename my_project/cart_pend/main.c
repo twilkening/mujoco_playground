@@ -136,7 +136,12 @@ void init_save_data()
 {
     //write name of the variable here (header)
     fprintf(fid,"t, ");
-    fprintf(fid,"PitchSense, PitchVelSense, RightWheel, LeftWheel,");
+    // fprintf(fid,"KineticEnergy, PotentialEnergy, TotalEnergy");
+    fprintf(fid,"quat_w, quat_x, quat_y, quat_z, ");
+    fprintf(fid,"pos_x, pos_y, pos_z, ");
+    fprintf(fid,"gyro_x, gyro_y, gyro_z, ");
+    fprintf(fid,"accel_x, accel_y, accel_z, ");
+    fprintf(fid,"RightControl, LeftControl,");
     fprintf(fid,"Pitch, PitchVel, ");
     //Don't remove the newline
     fprintf(fid,"\n");
@@ -151,9 +156,20 @@ void save_data(const mjModel* m, mjData* d)
     fprintf(fid,"%f, ",d->time);
     // fprintf(fid,"%f, %f, %f, ",
     //     d->energy[0], d->energy[1], d->energy[0] + d->energy[1]);
-    fprintf(fid,"%f, %f, ", d->sensordata[0], d->sensordata[1]);
+    // sensor data from cart_quaternion (w,x,y,z)
+    fprintf(fid,"%f, %f, %f, %f, ", d->sensordata[0], d->sensordata[1], d->sensordata[2], d->sensordata[3]);
+    // sensor data from cart_position (x,y,z)
+    fprintf(fid,"%f, %f, %f, ", d->sensordata[4], d->sensordata[5], d->sensordata[6]);
+    // sensor data from gyro (x,y,z)
+    fprintf(fid,"%f, %f, %f, ", d->sensordata[7], d->sensordata[8], d->sensordata[9]);
+    // sensor data from accelerometer (x,y,z)
+    fprintf(fid,"%f, %f, %f, ", d->sensordata[10], d->sensordata[11], d->sensordata[12]);
+    // control signals for wheels
     fprintf(fid,"%f, %f, ", d->ctrl[0], d->ctrl[1]);
-    fprintf(fid,"%f, %f, ", d->qpos[3], d->qvel[3]);
+    // Pitch and PitchVel (x-axis)
+    mjtNum quat[4] = {d->qpos[3], d->qpos[4], d->qpos[5], d->qpos[6]}; // using actual angle of pendulum
+    QuaternionToEuler(quat, euler);
+    fprintf(fid,"%f, %f, ", euler[0], d->qvel[3]);
 
     //Don't remove the newline
     fprintf(fid,"\n");
@@ -269,16 +285,16 @@ double myPID(const mjModel* m, mjData* d, double r, double y, double kp, double 
 }
 
 //**************************
-void mycontroller(const mjModel* m, mjData* d)
+void myPIDcontroller(const mjModel* m, mjData* d)
 {
     double r = 0.0; // desired angle (reference point)
     // double y = d->sensordata[0]; // sensed angle of the pendulum (e.g., from a gyro or accelerometer)
     // since qpos is now quaternion, we need to convert to angle
     mjtNum euler[3];
-    mjtNum quat[4] = {d->qpos[3], d->qpos[4], d->qpos[5], d->qpos[6]};
+    // mjtNum quat[4] = {d->qpos[3], d->qpos[4], d->qpos[5], d->qpos[6]}; // using actual angle of pendulum
+    mjtNum quat[4] = {d->sensordata[0], d->sensordata[1], d->sensordata[2], d->sensordata[3]}; // using sensed angle of pendulum
     QuaternionToEuler(quat, euler);
-    double xtheta = euler[0]; // use the roll angle as the pendulum angle
-    // double y = d->qpos[3]; // angle of the cart body x-axis (qpos[3] is the angle of the pendulum)
+    double xtheta = euler[0]; // use the roll (x-axis) angle as the pendulum angle
     double kp = 600e-3; // proportional gain
     double kd = 20e-3; // derivative gain
     double ki = 60e-3; // integral gain
@@ -310,6 +326,47 @@ void mycontroller(const mjModel* m, mjData* d)
     loop_index = loop_index + 1;
 }
 
+//**************************
+void myPIDcontroller(const mjModel* m, mjData* d)
+{
+    double r = 0.0; // desired angle (reference point)
+    // double y = d->sensordata[0]; // sensed angle of the pendulum (e.g., from a gyro or accelerometer)
+    // since qpos is now quaternion, we need to convert to angle
+    mjtNum euler[3];
+    // mjtNum quat[4] = {d->qpos[3], d->qpos[4], d->qpos[5], d->qpos[6]}; // using actual angle of pendulum
+    mjtNum quat[4] = {d->sensordata[0], d->sensordata[1], d->sensordata[2], d->sensordata[3]}; // using sensed angle of pendulum
+    QuaternionToEuler(quat, euler);
+    double xtheta = euler[0]; // use the roll (x-axis) angle as the pendulum angle
+    double kp = 600e-3; // proportional gain
+    double kd = 20e-3; // derivative gain
+    double ki = 60e-3; // integral gain
+
+    static double last_update = 0.0; // last time the control was updated
+    
+    // guard check to update control at a fixed frequency
+    if (d->time - last_update >= 1.0 / ctrl_update_freq)
+    {
+        // hard-coded PD controller example
+        // d->ctrl[0] = -kp*(d->sensordata[0]-0)-kd*d->sensordata[1];
+        // d->ctrl[1] = -d->ctrl[0];   // apply the inverse control to both wheels 
+
+        // method-based PID controller
+        double ctrl = myPID(m, d, r, xtheta, kp, ki, kd);
+        d->ctrl[0] = -ctrl; // apply control to the first actuator (left wheel)
+        d->ctrl[1] = ctrl; // apply control to the second actuator (right wheel)
+
+        last_update = d->time;
+    }
+
+
+    // InjectControlNoise(); // inject noise into the control signal
+
+    //write data here (dont change/dete this function call; instead write what you need to save in save_data)
+    if ( loop_index%data_frequency==0){
+        save_data(m,d);
+    }
+    loop_index = loop_index + 1;
+}
 
 //************************
 // main function
@@ -377,13 +434,14 @@ int main(int argc, const char** argv)
     cam.lookat[2] = arr_view[5];
 
     // install control callback
-    mjcb_control = mycontroller;
+    mjcb_control = myPIDcontroller;
 
     fid = fopen(datapath,"w");
     init_save_data();
 
     // set initial angle of cart-pendulum
-    d->qpos[3] = 0.01; // cart pitch angle in radians
+    // TODO: in order to set this, need to convert euler angle to quaternion
+    // d->qpos[3] = 0.001; // cart pitch angle in radians
 
     // print the number of values in the sensor data; get insight into if gyro and acclerometer return 3 values each
     printf("number of sensor values = %d\n", m->nsensordata);
