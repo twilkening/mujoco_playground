@@ -23,11 +23,7 @@ double simend = 10;
 //related to writing data to a file
 FILE *fid;
 int loop_index = 0;
-const int data_frequency = 50; //frequency at which data is written to a file
-
-
-// char xmlpath[] = "../myproject/template_writeData/pendulum.xml";
-// char datapath[] = "../myproject/template_writeData/data.csv";
+const int data_frequency = 50; // #'d loop iteration at which data is written to a file
 
 
 //Change the path <template_writeData>
@@ -168,6 +164,7 @@ void save_data(const mjModel* m, mjData* d)
     fprintf(fid,"%f, %f, ", d->ctrl[0], d->ctrl[1]);
     // Pitch and PitchVel (x-axis)
     mjtNum quat[4] = {d->qpos[3], d->qpos[4], d->qpos[5], d->qpos[6]}; // using actual angle of pendulum
+    mjtNum euler[3];
     QuaternionToEuler(quat, euler);
     fprintf(fid,"%f, %f, ", euler[0], d->qvel[3]);
 
@@ -265,6 +262,7 @@ double myPID(const mjModel* m, mjData* d, double r, double y, double kp, double 
 {
     static double e_prior = 0; // history of position error
     static double t_prior = 0; // history of time
+    static double integral = 0; // integral of error
 
     // calculate error
     double e = r - y;
@@ -278,8 +276,10 @@ double myPID(const mjModel* m, mjData* d, double r, double y, double kp, double 
     e_prior = e;
     t_prior = d->time;
 
+    integral += e * (d->time - t_prior); // approximate integral using rectangle method
+
     // calculate control signal
-    double ctrl = kp * e + kd * de + ki * (e * m->opt.timestep); // integral term is approximated by e*dt
+    double ctrl = kp * e + kd * de + ki * integral;
 
     return ctrl;
 }
@@ -327,45 +327,60 @@ void myPIDcontroller(const mjModel* m, mjData* d)
 }
 
 //**************************
-void myPIDcontroller(const mjModel* m, mjData* d)
+// State-space controller example (discrete time, 100Hz):
+    // pseudo-code...
+    // define A, B, C, D
+    // c2d, get G and H matrices
+    // define desired pole locations (MATLAB)
+    // generate control gains
+    // set control: u = -Kx
+    // so... it's actually not that hard... we do NOT need to know the A,B,C,D matrices or define G and H for discrete time...
+    // in fact, can just do the analysis in MATLAB, then port over the gains here, and confirm whether the system behavior is as expected
+
+    // NOTE: we DO need to figure out what kind of forces are imparted by the wheels turning with Nm torque, since we are not 
+    // providing a pure x-axis force on the cart axis.
+    // r*f = tau
+    // thus, if the wheels are turning with torque tau, the force exerted on the cart is f = tau/r
+    // since the input of the system is Nm torque, we need to scale by 1/r to get the equivalent force on the cart axis
+
+// x = [x, xdot, theta, thetadot]'
+// u = -Kx
+// K matrix (state feedback gain) (from MATLAB place function)
+const double r = 0.04; // radius of the wheels, in meters
+mjtNum K[4] = {-1.2957/r, -2.7642/r, -6.7969/r, -0.5284/r}; // scale by 1/r to convert from torque to force
+
+void mySScontroller(const mjModel* m, mjData* d)
 {
-    double r = 0.0; // desired angle (reference point)
-    // double y = d->sensordata[0]; // sensed angle of the pendulum (e.g., from a gyro or accelerometer)
+
     // since qpos is now quaternion, we need to convert to angle
     mjtNum euler[3];
-    // mjtNum quat[4] = {d->qpos[3], d->qpos[4], d->qpos[5], d->qpos[6]}; // using actual angle of pendulum
     mjtNum quat[4] = {d->sensordata[0], d->sensordata[1], d->sensordata[2], d->sensordata[3]}; // using sensed angle of pendulum
     QuaternionToEuler(quat, euler);
     double xtheta = euler[0]; // use the roll (x-axis) angle as the pendulum angle
-    double kp = 600e-3; // proportional gain
-    double kd = 20e-3; // derivative gain
-    double ki = 60e-3; // integral gain
 
     static double last_update = 0.0; // last time the control was updated
     
     // guard check to update control at a fixed frequency
     if (d->time - last_update >= 1.0 / ctrl_update_freq)
     {
-        // hard-coded PD controller example
-        // d->ctrl[0] = -kp*(d->sensordata[0]-0)-kd*d->sensordata[1];
-        // d->ctrl[1] = -d->ctrl[0];   // apply the inverse control to both wheels 
 
-        // method-based PID controller
-        double ctrl = myPID(m, d, r, xtheta, kp, ki, kd);
+        // construct state vector
+        mjtNum x[4];
+        x[0] = d->sensordata[4]; // cart position
+        x[1] = d->qvel[0]; // cart velocity TODO: estimate cart velocity using Luenberger observer with wheel position and gyro/accelerometer data
+        x[2] = xtheta;           // pendulum angle
+        x[3] = d->qvel[3]; // pendulum x-axis angular velocity TODO: use sensordata gyro + accelerometer to get angular velocity
+        // matrix multiplication
+        double ctrl = -K[0]*x[0] - K[1]*x[1] - K[2]*x[2] - K[3]*x[3];
         d->ctrl[0] = -ctrl; // apply control to the first actuator (left wheel)
         d->ctrl[1] = ctrl; // apply control to the second actuator (right wheel)
 
         last_update = d->time;
+        save_data(m,d);
     }
-
 
     // InjectControlNoise(); // inject noise into the control signal
 
-    //write data here (dont change/dete this function call; instead write what you need to save in save_data)
-    if ( loop_index%data_frequency==0){
-        save_data(m,d);
-    }
-    loop_index = loop_index + 1;
 }
 
 //************************
@@ -434,7 +449,7 @@ int main(int argc, const char** argv)
     cam.lookat[2] = arr_view[5];
 
     // install control callback
-    mjcb_control = myPIDcontroller;
+    mjcb_control = mySScontroller;
 
     fid = fopen(datapath,"w");
     init_save_data();
