@@ -1,11 +1,12 @@
 
 #define _USE_MATH_DEFINES
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h> //for bool
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cstdbool> //for bool
 //#include <unistd.h> //for usleep
-#include <math.h>
+#include <cmath>
+#include <iostream> // For C++ style I/O
 
 #include "mujoco/mujoco.h"
 #include <GLFW/glfw3.h>
@@ -55,9 +56,7 @@ mjtNum position_history = 0;
 mjtNum previous_time = 0;
 
 // controller related variables
-float_t ctrl_update_freq = 100;
-// mjtNum last_update = 0.0;
-// mjtNum ctrl;
+double ctrl_update_freq = 100.0; // Hz
 
 // keyboard callback
 void keyboard(GLFWwindow* window, int key, int scancode, int act, int mods)
@@ -491,7 +490,7 @@ int main(int argc, const char** argv)
     cam.lookat[2] = arr_view[5];
 
     // install control callback
-    mjcb_control = mySSPIcontroller;
+    mjcb_control = mySSPcontroller;
 
     fid = fopen(datapath,"w");
     init_save_data();

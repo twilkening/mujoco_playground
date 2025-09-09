@@ -11,7 +11,7 @@
 
 COMMON=-O2 -I../../include -L../../lib -mavx -pthread -Wl,-no-as-needed -Wl,-rpath,'$$ORIGIN'/../../lib
 LIBS = -lmujoco -lglfw -lm
-CC = gcc
+CC = g++
 
 #WINDOWS
 #COMMON=/O2 /MT /EHsc /arch:AVX /I../../include /Fe../../bin/
@@ -21,12 +21,12 @@ CC = gcc
 ROOT = cart_pend
 
 all:
-	$(CC) $(COMMON) main.c $(LIBS) -o $(ROOT)
+	$(CC) $(COMMON) main.cpp $(LIBS) -o $(ROOT)
 # 	$(CC) $(COMMON) main.c $(LIBS) -o ../../bin/$(ROOT)
 	
 
 main.o:
-	$(CC) $(COMMON) -c main.c
+	$(CC) $(COMMON) -c main.cpp
 
 clean:
 	rm *.o $(ROOT)
