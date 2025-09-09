@@ -125,6 +125,25 @@ void scroll(GLFWwindow* window, double xoffset, double yoffset)
     mjv_moveCamera(m, mjMOUSE_ZOOM, 0, -0.05*yoffset, &scn, &cam);
 }
 
+//**************************
+// Helper function for Quaternion to Euler angles
+// Source: https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
+void QuaternionToEuler(const mjtNum* quat, mjtNum* euler) {
+    // roll (x-axis rotation)
+    double sinr_cosp = 2 * (quat[0] * quat[1] + quat[2] * quat[3]);
+    double cosr_cosp = 1 - 2 * (quat[1] * quat[1] + quat[2] * quat[2]);
+    euler[0] = atan2(sinr_cosp, cosr_cosp); // roll angle   
+
+    // pitch (y-axis rotation)
+    double sinp = sqrt(1 + 2 * (quat[0] * quat[2] - quat[1] * quat[3]));
+    double cosp = sqrt(1 - 2 * (quat[0] * quat[2] - quat[1] * quat[3]));
+    euler[1] = 2 * atan2(sinp, cosp) - M_PI / 2; // pitch angle
+
+    // yaw (z-axis rotation)
+    double siny_cosp = 2 * (quat[0] * quat[3] + quat[1] * quat[2]);
+    double cosy_cosp = 1 - 2 * (quat[2] * quat[2] + quat[3] * quat[3]);
+    euler[2] = atan2(siny_cosp, cosy_cosp); // yaw angle
+}
 
 //****************************
 //This function is called once and is used to get the headers
@@ -209,26 +228,6 @@ void InjectControlNoise() {
             d->ctrl[i] = mju_clip(d->ctrl[i], bottom, top);
         }
     }
-}
-
-//**************************
-// Helper function for Quaternion to Euler angles
-// Source: https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
-void QuaternionToEuler(const mjtNum* quat, mjtNum* euler) {
-    // roll (x-axis rotation)
-    double sinr_cosp = 2 * (quat[0] * quat[1] + quat[2] * quat[3]);
-    double cosr_cosp = 1 - 2 * (quat[1] * quat[1] + quat[2] * quat[2]);
-    euler[0] = atan2(sinr_cosp, cosr_cosp); // roll angle   
-
-    // pitch (y-axis rotation)
-    double sinp = sqrt(1 + 2 * (quat[0] * quat[2] - quat[1] * quat[3]));
-    double cosp = sqrt(1 - 2 * (quat[0] * quat[2] - quat[1] * quat[3]));
-    euler[1] = 2 * atan2(sinp, cosp) - M_PI / 2; // pitch angle
-
-    // yaw (z-axis rotation)
-    double siny_cosp = 2 * (quat[0] * quat[3] + quat[1] * quat[2]);
-    double cosy_cosp = 1 - 2 * (quat[2] * quat[2] + quat[3] * quat[3]);
-    euler[2] = atan2(siny_cosp, cosy_cosp); // yaw angle
 }
 
 /*
@@ -340,16 +339,17 @@ void myPIDcontroller(const mjModel* m, mjData* d)
     // NOTE: we DO need to figure out what kind of forces are imparted by the wheels turning with Nm torque, since we are not 
     // providing a pure x-axis force on the cart axis.
     // r*f = tau
-    // thus, if the wheels are turning with torque tau, the force exerted on the cart is f = tau/r
-    // since the input of the system is Nm torque, we need to scale by 1/r to get the equivalent force on the cart axis
+    // thus, if the "cart" is pushed with a force f, it is equivalent to motor torque over wheel radius: f = tau/r
+    // since the MATLAB EOM consider the force applied to the wheel axis, we need to scale our control gains by r to
+    // get the equivalent torque input from the motors on the cart axis
 
 // x = [x, xdot, theta, thetadot]'
 // u = -Kx
 // K matrix (state feedback gain) (from MATLAB place function)
 const double r = 0.04; // radius of the wheels, in meters
-mjtNum K[4] = {-1.2957/r, -2.7642/r, -6.7969/r, -0.5284/r}; // scale by 1/r to convert from torque to force
+mjtNum K_ssp[4] = {-1.2957*r, -2.7642*r, -6.7969*r, -0.5284*r}; // scale by r to convert from force input to torque
 
-void mySScontroller(const mjModel* m, mjData* d)
+void mySSPcontroller(const mjModel* m, mjData* d)
 {
 
     // since qpos is now quaternion, we need to convert to angle
@@ -371,9 +371,51 @@ void mySScontroller(const mjModel* m, mjData* d)
         x[2] = xtheta;           // pendulum angle
         x[3] = d->qvel[3]; // pendulum x-axis angular velocity TODO: use sensordata gyro + accelerometer to get angular velocity
         // matrix multiplication
-        double ctrl = -K[0]*x[0] - K[1]*x[1] - K[2]*x[2] - K[3]*x[3];
-        d->ctrl[0] = -ctrl; // apply control to the first actuator (left wheel)
-        d->ctrl[1] = ctrl; // apply control to the second actuator (right wheel)
+        double ctrl = -K_ssp[0]*x[0] - K_ssp[1]*x[1] - K_ssp[2]*x[2] - K_ssp[3]*x[3];
+        d->ctrl[0] = ctrl; // apply control to the first actuator (left wheel)
+        d->ctrl[1] = -ctrl; // apply control to the second actuator (right wheel)
+
+        last_update = d->time;
+        save_data(m,d);
+    }
+
+    // InjectControlNoise(); // inject noise into the control signal
+
+}
+
+// SS PI controller - integral action added for position control of the cart
+// x = [x, xdot, theta, thetadot, integral of position error]'
+// u = -Kx
+// K matrix (state feedback gain) (from MATLAB place function)
+mjtNum K_sspi[5] = {-10.8317*r, -5.7073*r, -11.0581*r, -0.9188*r, 0.1115*r}; // scale by r to convert from force input to torque
+void mySSPIcontroller(const mjModel* m, mjData* d)
+{
+
+    // since qpos is now quaternion, we need to convert to angle
+    mjtNum euler[3];
+    mjtNum quat[4] = {d->sensordata[0], d->sensordata[1], d->sensordata[2], d->sensordata[3]}; // using sensed angle of pendulum
+    QuaternionToEuler(quat, euler);
+    double xtheta = euler[0]; // use the roll (x-axis) angle as the pendulum angle
+
+    static double last_update = 0.0; // last time the control was updated
+    static double error_integral = 0.0; // integral of the cart position error
+    double yd = 0.0; // desired cart position
+
+    // guard check to update control at a fixed frequency
+    if (d->time - last_update >= 1.0 / ctrl_update_freq)
+    {
+
+        // construct state vector
+        mjtNum x[4];
+        x[0] = d->sensordata[4]; // cart position
+        x[1] = d->qvel[0]; // cart velocity TODO: estimate cart velocity using Luenberger observer with wheel position and gyro/accelerometer data
+        x[2] = xtheta;           // pendulum angle
+        x[3] = d->qvel[3]; // pendulum x-axis angular velocity TODO: use sensordata gyro + accelerometer to get angular velocity
+        error_integral += yd - x[0]; // approximate integral using summation
+        // matrix multiplication
+        double ctrl = -K_sspi[0]*x[0] - K_sspi[1]*x[1] - K_sspi[2]*x[2] - K_sspi[3]*x[3] - K_sspi[4]*error_integral;
+        d->ctrl[0] = ctrl; // apply control to the first actuator (left wheel)
+        d->ctrl[1] = -ctrl; // apply control to the second actuator (right wheel)
 
         last_update = d->time;
         save_data(m,d);
@@ -449,7 +491,7 @@ int main(int argc, const char** argv)
     cam.lookat[2] = arr_view[5];
 
     // install control callback
-    mjcb_control = mySScontroller;
+    mjcb_control = mySSPIcontroller;
 
     fid = fopen(datapath,"w");
     init_save_data();
