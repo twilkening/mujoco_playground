@@ -399,6 +399,7 @@ void mySSPIcontroller(const mjModel* m, mjData* d)
     static double last_update = 0.0; // last time the control was updated
     static double error_integral = 0.0; // integral of the cart position error
     double yd = 0.0; // desired cart position
+    static double int_lim = 5.0; // anti-windup limit for integral term
 
     // guard check to update control at a fixed frequency
     if (d->time - last_update >= 1.0 / ctrl_update_freq)
@@ -408,11 +409,14 @@ void mySSPIcontroller(const mjModel* m, mjData* d)
         mjtNum x[4];
         x[0] = d->sensordata[4]; // cart position
         x[1] = d->qvel[0]; // cart velocity TODO: estimate cart velocity using Luenberger observer with wheel position and gyro/accelerometer data
-        x[2] = xtheta;           // pendulum angle
+        x[2] = xtheta + 0.036108;           // pendulum angle + offset to account for CoM not being exactly over the pivot point
         x[3] = d->qvel[3]; // pendulum x-axis angular velocity TODO: use sensordata gyro + accelerometer to get angular velocity
         error_integral += yd - x[0]; // approximate integral using summation
         // matrix multiplication
-        double ctrl = -K_sspi[0]*x[0] - K_sspi[1]*x[1] - K_sspi[2]*x[2] - K_sspi[3]*x[3] - K_sspi[4]*error_integral;
+        double ctrl_P = -K_sspi[0]*x[0] - K_sspi[1]*x[1] - K_sspi[2]*x[2] - K_sspi[3]*x[3];
+        double ctrl_I = -K_sspi[4]*error_integral;
+        double ctrl = ctrl_I > int_lim ? int_lim + ctrl_P : ctrl_I + ctrl_P; // saturate integral control to max 5Nm
+        ctrl = ctrl_I < -int_lim ? -int_lim + ctrl_P : ctrl; // saturate integral control to min -5Nm
         d->ctrl[0] = ctrl; // apply control to the first actuator (left wheel)
         d->ctrl[1] = -ctrl; // apply control to the second actuator (right wheel)
 
@@ -490,7 +494,7 @@ int main(int argc, const char** argv)
     cam.lookat[2] = arr_view[5];
 
     // install control callback
-    mjcb_control = mySSPcontroller;
+    mjcb_control = mySSPIcontroller;
 
     fid = fopen(datapath,"w");
     init_save_data();
