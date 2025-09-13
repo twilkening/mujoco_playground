@@ -409,10 +409,16 @@ void mySSPIcontroller(const mjModel* m, mjData* d)
         mjtNum x[4];
         x[0] = d->sensordata[4]; // cart position
         x[1] = d->qvel[0]; // cart velocity TODO: estimate cart velocity using Luenberger observer with wheel position and gyro/accelerometer data
-        x[2] = xtheta + 0.036108;           // pendulum angle + offset to account for CoM not being exactly over the pivot point
+        x[2] = xtheta - 0.036108;           // pendulum angle + offset to account for CoM not being exactly over the pivot point
+            // adding the offset keeps pendulum from running away, but control is very jittery, and seems to have
+            // a sharp response during sign changes of cart roll (x-axis) angle
+            // perhaps gain is too high? I should inspect what the bandwidth of my controller is and ensure
+            // it's <= 25Hz
+
         x[3] = d->qvel[3]; // pendulum x-axis angular velocity TODO: use sensordata gyro + accelerometer to get angular velocity
         error_integral += yd - x[0]; // approximate integral using summation
         // matrix multiplication
+        // double ctrl = -K_sspi[0]*x[0] - K_sspi[1]*x[1] - K_sspi[2]*x[2] - K_sspi[3]*x[3] - K_sspi[4]*error_integral;
         double ctrl_P = -K_sspi[0]*x[0] - K_sspi[1]*x[1] - K_sspi[2]*x[2] - K_sspi[3]*x[3];
         double ctrl_I = -K_sspi[4]*error_integral;
         double ctrl = ctrl_I > int_lim ? int_lim + ctrl_P : ctrl_I + ctrl_P; // saturate integral control to max 5Nm
