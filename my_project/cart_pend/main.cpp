@@ -19,7 +19,7 @@
 
 
 //simulation end time
-double simend = 10;
+double simend = 20;
 
 //related to writing data to a file
 FILE *fid;
@@ -346,8 +346,8 @@ void myPIDcontroller(const mjModel* m, mjData* d)
 // u = -Kx
 // K matrix (state feedback gain) (from MATLAB place function)
 const double r = 0.04; // radius of the wheels, in meters
-mjtNum K_ssp[4] = {-1.2957*r, -2.7642*r, -6.7969*r, -0.5284*r}; // scale by r to convert from force input to torque
-
+// mjtNum K_ssp[4] = {-1.2957*r, -2.7642*r, -6.7969*r, -0.5284*r}; // scale by r to convert from force input to torque
+mjtNum K_ssp[4] = {-0.0079*r, -1.6837*r, -3.6745*r, -0.1261*r}; // scale by r to convert from force input to torque
 void mySSPcontroller(const mjModel* m, mjData* d)
 {
 
@@ -365,12 +365,66 @@ void mySSPcontroller(const mjModel* m, mjData* d)
 
         // construct state vector
         mjtNum x[4];
-        x[0] = d->sensordata[4]; // cart position
+        x[0] = d->sensordata[5]; // cart position; "x" is along the y-axis in the mujoco world frame
         x[1] = d->qvel[0]; // cart velocity TODO: estimate cart velocity using Luenberger observer with wheel position and gyro/accelerometer data
-        x[2] = xtheta;           // pendulum angle
+        x[2] = xtheta + 0.045; // - 0.036108;           // pendulum angle
         x[3] = d->qvel[3]; // pendulum x-axis angular velocity TODO: use sensordata gyro + accelerometer to get angular velocity
         // matrix multiplication
-        double ctrl = -K_ssp[0]*x[0] - K_ssp[1]*x[1] - K_ssp[2]*x[2] - K_ssp[3]*x[3];
+        double xd[4] = {1, 0, 0, 0}; // desired state vector
+        double ctrl = -K_ssp[0] * (x[0] - xd[0])
+                    - K_ssp[1] * (x[1] - xd[1])
+                    - K_ssp[2] * (x[2] - xd[2])
+                    - K_ssp[3] * (x[3] - xd[3]);
+
+        d->ctrl[0] = ctrl; // apply control to the first actuator (left wheel)
+        d->ctrl[1] = -ctrl; // apply control to the second actuator (right wheel)
+
+        last_update = d->time;
+        save_data(m,d);
+    }
+
+    // InjectControlNoise(); // inject noise into the control signal
+
+}
+
+// x = [x, xdot, theta, thetadot]'
+// u = -K(x - x_desired)
+// K matrix (state feedback gain) (from MATLAB LQR function)
+// scale by r to convert from force input to torque
+// mjtNum K_ssp_desired[4] = {-0.1952*r, -2.1149*r, -7.6775*r, -2.0487*r}; // 
+// mjtNum K_ssp_desired[4] = {-0.0273*r, -3.0981*r, -8.7937*r, -0.7602*r}; // 
+// mjtNum K_ssp_desired[4] = {-0.0279*r, -3.1258*r, -8.7201*r, -0.7077*r}; // 
+// mjtNum K_ssp_desired[4] = {-0.0760*r, -2.9516*r, -9.1199*r, -1.0618*r}; // Q = diag([1 1 10 100]); R = 1e2;
+mjtNum K_ssp_desired[4] = {-0.0881*r, -3.1477*r, -8.7474*r, -0.7102*r}; // Q = diag([100 1 10 100]); R = 1e4;
+// mjtNum K_ssp_desired[4] = {-1.8645*r, -3.4969*r, -11.9430*r, -2.1176*r}; // Q = diag([100 1 10 100]); R = 1;
+void mySSPdesired_controller(const mjModel* m, mjData* d)
+{
+
+    // since qpos is now quaternion, we need to convert to angle
+    mjtNum euler[3];
+    mjtNum quat[4] = {d->sensordata[0], d->sensordata[1], d->sensordata[2], d->sensordata[3]}; // using sensed angle of pendulum
+    QuaternionToEuler(quat, euler);
+    double xtheta = euler[0]; // use the roll (x-axis) angle as the pendulum angle
+
+    static double last_update = 0.0; // last time the control was updated
+    
+    // guard check to update control at a fixed frequency
+    if (d->time - last_update >= 1.0 / ctrl_update_freq)
+    {
+
+        // construct state vector
+        mjtNum x[4];
+        x[0] = d->sensordata[5]; // cart position; "x" is along the y-axis in the mujoco world frame
+        x[1] = d->qvel[0]; // cart velocity TODO: estimate cart velocity using Luenberger observer with wheel position and gyro/accelerometer data
+        x[2] = xtheta + 0.06;           // pendulum angle, offset so that CoM is over pivot point
+        x[3] = d->qvel[3]; // pendulum x-axis angular velocity TODO: use sensordata gyro + accelerometer to get angular velocity
+        // matrix multiplication
+        double xd[4] = {0, 0, 0, 0}; // desired state vector
+        double ctrl = -K_ssp_desired[0] * (x[0] - xd[0])
+                    - K_ssp_desired[1] * (x[1] - xd[1])
+                    - K_ssp_desired[2] * (x[2] - xd[2])
+                    - K_ssp_desired[3] * (x[3] - xd[3]);
+
         d->ctrl[0] = ctrl; // apply control to the first actuator (left wheel)
         d->ctrl[1] = -ctrl; // apply control to the second actuator (right wheel)
 
@@ -386,7 +440,9 @@ void mySSPcontroller(const mjModel* m, mjData* d)
 // x = [x, xdot, theta, thetadot, integral of position error]'
 // u = -Kx
 // K matrix (state feedback gain) (from MATLAB place function)
-mjtNum K_sspi[5] = {-10.8317*r, -5.7073*r, -11.0581*r, -0.9188*r, 0.1115*r}; // scale by r to convert from force input to torque
+// mjtNum K_sspi[5] = {-10.8317*r, -5.7073*r, -11.0581*r, -0.9188*r, 0.1115*r}; // scale by r to convert from force input to torque
+// mjtNum K_sspi[5] = {-19.5492*r, -8.0521*r, -13.6899*r, -1.1253*r, 0.2149*r}; // scale by r to convert from force input to torque
+mjtNum K_sspi[5] = {-15.8509*r, -8.4484*r, -20.6371*r, -2.5579*r, 0.1828*r};
 void mySSPIcontroller(const mjModel* m, mjData* d)
 {
 
@@ -414,15 +470,19 @@ void mySSPIcontroller(const mjModel* m, mjData* d)
             // a sharp response during sign changes of cart roll (x-axis) angle
             // perhaps gain is too high? I should inspect what the bandwidth of my controller is and ensure
             // it's <= 25Hz
+            // TODO: SS PI control continues to be unstable, need to investigate if possible to control in this way
 
         x[3] = d->qvel[3]; // pendulum x-axis angular velocity TODO: use sensordata gyro + accelerometer to get angular velocity
-        error_integral += yd - x[0]; // approximate integral using summation
+        // limit the integral term to prevent windup
+        error_integral = error_integral + yd - x[0] > int_lim ? int_lim : error_integral + yd - x[0];
+        error_integral = error_integral < -int_lim ? -int_lim : error_integral; // approximate integral using summation
         // matrix multiplication
         // double ctrl = -K_sspi[0]*x[0] - K_sspi[1]*x[1] - K_sspi[2]*x[2] - K_sspi[3]*x[3] - K_sspi[4]*error_integral;
         double ctrl_P = -K_sspi[0]*x[0] - K_sspi[1]*x[1] - K_sspi[2]*x[2] - K_sspi[3]*x[3];
         double ctrl_I = -K_sspi[4]*error_integral;
-        double ctrl = ctrl_I > int_lim ? int_lim + ctrl_P : ctrl_I + ctrl_P; // saturate integral control to max 5Nm
-        ctrl = ctrl_I < -int_lim ? -int_lim + ctrl_P : ctrl; // saturate integral control to min -5Nm
+        double ctrl = ctrl_P + ctrl_I;
+        // double ctrl = ctrl_I > int_lim ? int_lim + ctrl_P : ctrl_I + ctrl_P; // saturate integral control to max 5Nm
+        // ctrl = ctrl_I < -int_lim ? -int_lim + ctrl_P : ctrl; // saturate integral control to min -5Nm
         d->ctrl[0] = ctrl; // apply control to the first actuator (left wheel)
         d->ctrl[1] = -ctrl; // apply control to the second actuator (right wheel)
 
@@ -500,20 +560,36 @@ int main(int argc, const char** argv)
     cam.lookat[2] = arr_view[5];
 
     // install control callback
-    mjcb_control = mySSPIcontroller;
-
+    // mjcb_control = myPIDcontroller;
+    // mjcb_control = mySSPcontroller;
+    mjcb_control = mySSPdesired_controller;
+    // mjcb_control = mySSPIcontroller;
+    
     fid = fopen(datapath,"w");
     init_save_data();
-
-    // set initial angle of cart-pendulum
-    // TODO: in order to set this, need to convert euler angle to quaternion
-    // d->qpos[3] = 0.001; // cart pitch angle in radians
 
     // print the number of values in the sensor data; get insight into if gyro and acclerometer return 3 values each
     printf("number of sensor values = %d\n", m->nsensordata);
     // get the # of generalized coordinates, DOF of model, and # of actuators
     printf("# of generalized coordinates: nq = %d,\n# of DOF of model: nv = %d,\n# of actuators: nu = %d\n", m->nq, m->nv, m->nu);
 
+    // set the initial angle of pendulum
+    // mjtNum euler_init[3];
+    // mjtNum quat_init[4];
+    // euler_init[0] = - 15.0 * M_PI / 180.0; // 15 degrees from vertical
+    // euler_init[1] = 0.0;
+    // euler_init[2] = 0.0;
+    // // convert to quaternion
+    // quat_init[0] = cos(euler_init[0]/2) * cos(euler_init[1]/2) * cos(euler_init[2]/2) + sin(euler_init[0]/2) * sin(euler_init[1]/2) * sin(euler_init[2]/2);
+    // quat_init[1] = sin(euler_init[0]/2) * cos(euler_init[1]/2) * cos(euler_init[2]/2) - cos(euler_init[0]/2) * sin(euler_init[1]/2) * sin(euler_init[2]/2);
+    // quat_init[2] = cos(euler_init[0]/2) * sin(euler_init[1]/2) * cos(euler_init[2]/2) + sin(euler_init[0]/2) * cos(euler_init[1]/2) * sin(euler_init[2]/2);
+    // quat_init[3] = cos(euler_init[0]/2) * cos(euler_init[1]/2) * sin(euler_init[2]/2) - sin(euler_init[0]/2) * sin(euler_init[1]/2) * cos(euler_init[2]/2);
+    // d->qpos[3] = quat_init[0];
+    // d->qpos[4] = quat_init[1];
+    // d->qpos[5] = quat_init[2];
+    // d->qpos[6] = quat_init[3];
+    // mj_forward(m, d); // call forward to update the model with the new initial position
+    
     // use the first while condition if you want to simulate for a period.
     while( !glfwWindowShouldClose(window))
     {
