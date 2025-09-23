@@ -21,12 +21,8 @@ CC = g++
 ROOT = cart_pend
 
 all:
-	$(CC) $(COMMON) main.cpp $(LIBS) -o $(ROOT)
+	$(CC) $(COMMON) main.cpp control.cpp $(LIBS) -o $(ROOT)
 # 	$(CC) $(COMMON) main.c $(LIBS) -o ../../bin/$(ROOT)
 	
-
-main.o:
-	$(CC) $(COMMON) -c main.cpp
-
 clean:
-	rm *.o $(ROOT)
+	rm -f *.o $(ROOT)

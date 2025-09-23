@@ -2,6 +2,7 @@
     "files.associations": {
         "vector": "cpp",
         "stdio.h": "c",
-        "mujoco.h": "c"
+        "mujoco.h": "c",
+        "cstdio": "cpp"
     }
 }
