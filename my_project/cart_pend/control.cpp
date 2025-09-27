@@ -30,8 +30,8 @@ const double r = 0.04;
 mjtNum K_ssp[4] = {-0.0079*r, -1.6837*r, -3.6745*r, -0.1261*r};
 
 // gains for state-space LQR controller with desired state
-mjtNum K_ssp_desired[4] = {-0.0088*r, -3.1188*r, -8.7115*r, -0.7069*r}; // Q = diag([1 1 10 100]); R = 1e4;
-// mjtNum K_ssp_desired[4] = {-0.0760*r, -2.9516*r, -9.1199*r, -1.0618*r}; // Q = diag([1 1 10 100]); R = 1e2;
+// mjtNum K_ssp_desired[4] = {-0.0088*r, -3.1188*r, -8.7115*r, -0.7069*r}; // Q = diag([1 1 10 100]); R = 1e4;
+mjtNum K_ssp_desired[4] = {-0.0760*r, -2.9516*r, -9.1199*r, -1.0618*r}; // Q = diag([1 1 10 100]); R = 1e2;
 // mjtNum K_ssp_desired[4] = {-0.0881*r, -3.1477*r, -8.7474*r, -0.7102*r}; // Q = diag([100 1 10 100]); R = 1e4;
 // mjtNum K_ssp_desired[4] = {-1.8645*r, -3.4969*r, -11.9430*r, -2.1176*r}; // Q = diag([100 1 10 100]); R = 1; // unstable
 // mjtNum K_ssp_desired[4] = {-0.0088*r, -3.1188*r, -8.7122*r, -0.7069*r}; // Q = diag([1 1 100 100]); R = 1e4;
@@ -42,9 +42,20 @@ mjtNum K_ssp_desired[4] = {-0.0088*r, -3.1188*r, -8.7115*r, -0.7069*r}; // Q = d
 // mjtNum K_ssp_desired[4] = {-0.0124*r, -3.1168*r, -8.7223*r, -0.7134*r}; // Q = diag([1 1 10 100]); R = 5e3;
 // mjtNum K_ssp_desired[4] = {-0.0195*r, -3.1099*r, -8.7514*r, -0.7318*r}; // Q = diag([1 1 10 100]); R = 2e3;
 // mjtNum K_ssp_desired[4] = {-0.0273*r, -3.0981*r, -8.7937*r, -0.7602*r}; // Q = diag([1 1 10 100]); R = 1e3;
+// mjtNum K_ssp_desired[4] = {-0.1945*r, -2.1261*r, -7.7281*r, -2.0436*r}; // Q = diag([1 1 10 100]); R = 0.1; // joint damping at 0.05 vs. 0.005
+// mjtNum K_ssp_desired[4] = {-0.1953*r, -2.1137*r, -7.6722*r, -2.0492*r}; // Q = diag([1 1 10 100]); R = 1e-3; // joint damping at 0.029 vs. 0.05, ctrl/2
 
 // gains for state-space controller with integral action
-mjtNum K_sspi[5] = {-1.9153*r, -3.7396*r, -9.4674*r, -0.7756*r, 0.0088*r}; // Q = diag([1 1 10 100 1]); R = 1e4;
+// mjtNum K_sspi[5] = {-1.9153*r, -3.7396*r, -9.4674*r, -0.7756*r, 0.0088*r}; // Q = diag([1 1 10 100 1]); R = 1e4;
+// mjtNum K_sspi[5] = {-3.8108*r, -4.2684*r, -10.0934*r, -0.8324*r, 0.0276*r}; // Q = diag([1 1 10 100 10]); R = 1e4;
+mjtNum K_sspi[5] = {-7.9737*r, -5.2854*r, -11.2643*r, -0.9388*r, 0.0866*r}; // Q = diag([1 1 10 100 100]); R = 1e4;
+// mjtNum K_sspi[5] = {-5.9055*r, -4.7983*r, -10.7082*r, -0.8883*r, 0.0550*r}; // Q = diag([1 1 10 100 40]); R = 1e4;
+// mjtNum K_sspi[5] = {-28.1303*r, -10.0598*r, -18.4073*r, -1.7473*r, 0.4631*r}; // Q = diag([1 1 10 100 40]); R = 1e2;
+// mjtNum K_sspi[5] = {-16.9013*r, -7.6822*r, -15.6549*r, -1.5270*r, 0.2337*r}; // Q = diag([1 1 10 100 10]); R = 1e2;
+// mjtNum K_sspi[5] = {-7.4908*r, -5.3718*r, -12.7473*r, -1.3066*r, 0.0747*r}; // Q = diag([1 1 10 100 1]); R = 1e2;
+// mjtNum K_sspi[5] = {-3.4935*r, -4.2012*r, -11.1118*r, -1.1909*r, 0.0238*r}; // Q = diag([1 1 10 100 0.1]); R = 1e2;
+// mjtNum K_sspi[5] = {-3.4935*r, -4.2012*r, -11.1118*r, -1.1909*r, 0.0010*r}; // Q = diag([1 1 10 100 0.1]); R = 1e2; // modified Ki to reduce oscillations
+// mjtNum K_sspi[5] = {-0.4785*r, -3.1247*r, -9.4194*r, -1.0802*r, 0.0008*r}; //Q = diag([1 1 10 100 1e-4]); R = 1e2;
 
 
 //**************************
@@ -283,18 +294,18 @@ void mySSPcontroller(const mjModel* m, mjData* d)
         // construct state vector
         mjtNum x[4];
         x[0] = d->sensordata[5]; // cart position; "x" is along the y-axis in the mujoco world frame
-        x[1] = d->qvel[0]; // cart velocity TODO: estimate cart velocity using Luenberger observer with wheel position and gyro/accelerometer data
-        x[2] = xtheta + 0.045; // - 0.036108;           // pendulum angle
-        x[3] = d->qvel[3]; // pendulum x-axis angular velocity TODO: use sensordata gyro + accelerometer to get angular velocity
+        x[1] = d->qvel[1]; // cart velocity TODO: estimate cart velocity using Luenberger observer with wheel position and gyro/accelerometer data
+        x[2] = -(xtheta + 0.036108); // - 0.036108;           // pendulum angle
+        x[3] = -d->qvel[3]; // pendulum x-axis angular velocity TODO: use sensordata gyro + accelerometer to get angular velocity
         // matrix multiplication
-        double xd[4] = {1, 0, 0, 0}; // desired state vector
+        double xd[4] = {0, 0, 0, 0}; // desired state vector
         double ctrl = -K_ssp[0] * (x[0] - xd[0])
                     - K_ssp[1] * (x[1] - xd[1])
                     - K_ssp[2] * (x[2] - xd[2])
                     - K_ssp[3] * (x[3] - xd[3]);
 
-        d->ctrl[0] = ctrl; // apply control to the first actuator (left wheel)
-        d->ctrl[1] = -ctrl; // apply control to the second actuator (right wheel)
+        d->ctrl[0] = -ctrl; // apply control to the first actuator (left wheel)
+        d->ctrl[1] = ctrl; // apply control to the second actuator (right wheel)
 
         last_update = d->time;
         save_data(m,d);
@@ -323,13 +334,13 @@ void mySSPdesired_controller(const mjModel* m, mjData* d)
     if (d->time - last_update >= 1.0 / ctrl_update_freq)
     {
         // cart velocity TODO: estimate cart velocity using Luenberger observer with wheel position and gyro/accelerometer data
-        double cart_vel = sqrt((d->qvel[0]) * (d->qvel[0]) + (d->qvel[1]) * (d->qvel[1])); // magnitude of cart velocity in the plane of the ground
+        // double cart_vel = sqrt((d->qvel[0]) * (d->qvel[0]) + (d->qvel[1]) * (d->qvel[1])); // magnitude of cart velocity in the plane of the ground
 
         // construct state vector
         mjtNum x[4];
-        x[0] = 0; //d->sensordata[5]; // cart position; "x" is along the y-axis in the mujoco world frame
+        x[0] = d->sensordata[5]; // cart position; "x" is along the y-axis in the mujoco world frame
         x[1] = d->qvel[1]; // cart_vel; // TODO still need a way to determine direction of cart velocity
-        x[2] = -xtheta - 0.038108;           // pendulum angle, offset so that CoM is over pivot point
+        x[2] = -(xtheta + 0.05508);           // pendulum angle, offset so that CoM is over pivot point
         x[3] = -d->qvel[3]; // pendulum x-axis angular velocity TODO: use sensordata gyro + accelerometer to get angular velocity
         // matrix multiplication
         double xd[4] = {0, 0, 0, 0}; // desired state vector
@@ -338,8 +349,8 @@ void mySSPdesired_controller(const mjModel* m, mjData* d)
                     - K_ssp_desired[2] * (x[2] - xd[2])
                     - K_ssp_desired[3] * (x[3] - xd[3]);
 
-        d->ctrl[0] = -ctrl; // apply control to the first actuator (left wheel)
-        d->ctrl[1] = ctrl; // apply control to the second actuator (right wheel)
+        d->ctrl[0] = -ctrl/2; // apply control to the first actuator (left wheel, when looking from battery side)
+        d->ctrl[1] = ctrl/2; // apply control to the second actuator (right wheel)
 
         last_update = d->time;
         save_data(m,d);
@@ -364,7 +375,7 @@ void mySSPIcontroller(const mjModel* m, mjData* d)
 
     static double last_update = 0.0; // last time the control was updated
     static double error_integral = 0.0; // integral of the cart position error
-    double yd = 0.0; // desired cart position
+    double yd = 0; // desired cart position
     static double int_lim = 5.0; // anti-windup limit for integral term
 
     // guard check to update control at a fixed frequency
@@ -375,7 +386,7 @@ void mySSPIcontroller(const mjModel* m, mjData* d)
         mjtNum x[4];
         x[0] = d->sensordata[5]; // cart position
         x[1] = d->qvel[1]; // cart velocity TODO: estimate cart velocity using Luenberger observer with wheel position and gyro/accelerometer data
-        x[2] = -xtheta - 0.038108;          // pendulum angle + offset to account for CoM not being exactly over the pivot point
+        x[2] = -(xtheta + 0.036108);          // pendulum angle + offset to account for CoM not being exactly over the pivot point
             // adding the offset keeps pendulum from running away, but control is very jittery, and seems to have
             // a sharp response during sign changes of cart roll (x-axis) angle
             // perhaps gain is too high? I should inspect what the bandwidth of my controller is and ensure
@@ -387,16 +398,19 @@ void mySSPIcontroller(const mjModel* m, mjData* d)
         // limit the integral term to prevent windup
         error_integral = error_integral + yd - x[0] > int_lim ? int_lim : error_integral + yd - x[0];
         error_integral = error_integral < -int_lim ? -int_lim : error_integral; // approximate integral using summation
-        
+        std::cout << "Integral of position error: " << error_integral << ", Actual Position: " << x[0] << std::endl;
+
         // matrix multiplication
         // double ctrl = -K_sspi[0]*x[0] - K_sspi[1]*x[1] - K_sspi[2]*x[2] - K_sspi[3]*x[3] - K_sspi[4]*error_integral;
         double ctrl_P = -K_sspi[0]*x[0] - K_sspi[1]*x[1] - K_sspi[2]*x[2] - K_sspi[3]*x[3];
+        // double ctrl_P = -K_sspi[0]*(x[0] - yd) - K_sspi[1]*x[1] - K_sspi[2]*x[2] - K_sspi[3]*x[3]; // offset position feedback to desired position
+        // double ctrl_P = -K_sspi[0]*0 - K_sspi[1]*x[1] - K_sspi[2]*x[2] - K_sspi[3]*x[3]; // zero out position feedback to test integral action
         double ctrl_I = -K_sspi[4]*error_integral;
         double ctrl = ctrl_P + ctrl_I;
         // double ctrl = ctrl_I > int_lim ? int_lim + ctrl_P : ctrl_I + ctrl_P; // saturate integral control to max 5Nm
         // ctrl = ctrl_I < -int_lim ? -int_lim + ctrl_P : ctrl; // saturate integral control to min -5Nm
-        d->ctrl[0] = -ctrl; // apply control to the first actuator (left wheel)
-        d->ctrl[1] = ctrl; // apply control to the second actuator (right wheel)
+        d->ctrl[0] = -ctrl/2; // apply control to the first actuator (left wheel)
+        d->ctrl[1] = ctrl/2; // apply control to the second actuator (right wheel)
 
         last_update = d->time;
         save_data(m,d);
