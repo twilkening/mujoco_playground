@@ -152,8 +152,8 @@ int main(int argc, const char** argv)
     // install control callback
     // mjcb_control = myPIDcontroller;
     // mjcb_control = mySSPcontroller;
-    // mjcb_control = mySSPdesired_controller;
-    mjcb_control = mySSPIcontroller;
+    mjcb_control = mySSPdesired_controller;
+    // mjcb_control = mySSPIcontroller;
     
     fid = fopen(datapath,"w");
     init_save_data();
