@@ -439,20 +439,20 @@ void mySSPdesired_controller(const mjModel* m, mjData* d)
         // matrix multiplication
 
         double xd0 = square_wave(d->time, 40.0, 0.2);
-        double integrator_limit = 0.02; // anti-windup limit for PID position controller        double raw_offset = myPID(m, d, xd[0], x[0], 0.6, 0.3, 1, integrator_limit); // use PID to determine desired angle offset based on position error
+        double integrator_limit = 0.1; // anti-windup limit for PID position controller        double raw_offset = myPID(m, d, xd[0], x[0], 0.6, 0.3, 1, integrator_limit); // use PID to determine desired angle offset based on position error
         
         static double prev_xd0 = 0.0;
         const double integral_eps = 1e-6;
         bool reset_integrator = (std::fabs(xd0 - prev_xd0) > integral_eps);
         prev_xd0 = xd0;
         double xd[4] = {xd0, 0, 0, 0}; // desired state vector
-        double raw_offset = myPID(m, d, xd[0], x[0], 0.3, 0, 0.8, integrator_limit, reset_integrator);
+        double raw_offset = myPID(m, d, xd[0], x[0], 0.3, 0.1, 0.8, integrator_limit, reset_integrator);
 
         double ramp_time = 12.0 / ctrl_update_freq; // 12 controller periods -> 0.1s when ctrl_update_freq==100
         // threshold to detect meaningful changes in offset command, to start a new ramp. otherwise will update offset every control step
         double eps = 0.1; 
         double offset_theta = offset_ramp.update(d->time, raw_offset, ramp_time, eps);
-        double ctrl = -K_ssp_desired[0] * (x[0] - xd[0])
+        double ctrl = -K_ssp_desired[0] * 0 // (x[0] - xd[0]) remove position from state space feedback, since we are using a PID controller for position
                     - K_ssp_desired[1] * (x[1] - xd[1])
                     - K_ssp_desired[2] * (x[2] - xd[2] - offset_theta) // add position control offset to desired angle
                     - K_ssp_desired[3] * (x[3] - xd[3]);
