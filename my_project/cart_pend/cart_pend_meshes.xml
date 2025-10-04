@@ -114,14 +114,14 @@
 
     </worldbody>
 
-    <worldbody>
-        <body name="blockYpos" pos="0 1 0">
+    <!-- <worldbody>
+        <body name="blockYpos" pos="0 0.6 0">
             <geom type="box" size="0.2 0.2 0.2" pos="0 0 0.2" rgba="1 0.5 0 1" mass="5"/>
         </body>
-        <body name="blockYneg" pos="0 -1 0">
+        <body name="blockYneg" pos="0 -0.6 0">
             <geom type="box" size="0.2 0.2 0.2" pos="0 0 0.2" rgba="1 0.5 0 1" mass="5"/>
         </body>
-    </worldbody>
+    </worldbody> -->
 
     <!-- we don't need any equalities right now... but may be useful in the future for the wheel to chassis interface -->
     <!-- <equality>

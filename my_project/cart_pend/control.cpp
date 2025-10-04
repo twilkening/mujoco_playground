@@ -1,7 +1,7 @@
 #include "main.h"
 
 /* define globals once here */
-double simend = 20; 
+double simend = 40; 
     //related to writing data to a file
 FILE* fid = nullptr;
 int loop_index = 0;
@@ -174,6 +174,63 @@ void InjectControlNoise(const mjModel* m, mjData* d) {
     }
 }
 
+//**************************
+double square_wave(double time, double period, double amplitude)
+{
+    if (period <= 0.0) {
+        // invalid period: return 0 (could also assert or throw)
+        return 0.0;
+    }
+
+    // fmod may return negative values for negative 'time', so normalize into [0, period)
+    double phase_rem = std::fmod(time, period);
+    if (phase_rem < 0.0)
+        phase_rem += period;
+    double phase = phase_rem / period; // now guaranteed in [0, 1)
+
+    return (phase < 0.5) ? amplitude : -amplitude;
+}
+
+//**************************
+struct RampFilter {
+    double target = 0.0;
+    double start = 0.0;
+    double smoothed = 0.0;
+    double t_start = -1e9;
+
+    // call each control update; returns the current smoothed value
+    double update(double time, double raw_target, double ramp_time, double eps) {
+        if (ramp_time <= 0.0) {
+            // immediate switch if no ramping requested
+            smoothed = raw_target;
+            target = raw_target;
+            start = raw_target;
+            t_start = time;
+            return smoothed;
+        }
+
+        // detect meaningful change and start a new ramp
+        if (std::fabs(raw_target - target) > eps) {
+            target = raw_target;
+            start = smoothed;
+            t_start = time;
+        }
+
+        // compute interpolation factor in [0,1]
+        double alpha = (time - t_start) / ramp_time;
+        if (alpha <= 0.0) {
+            return smoothed; // still at start
+        }
+        if (alpha >= 1.0) {
+            smoothed = target;
+            return smoothed;
+        }
+
+        smoothed = start + alpha * (target - start);
+        return smoothed;
+    }
+};
+
 /*
 OK. so I'd like to implement a PID controller for the cart-pendulum system.
 basically, we are linearizing the system around the equilibrium at the veritical position
@@ -201,11 +258,21 @@ kd - derivative gain
 ki - integral gain
 */
 
-double myPID(const mjModel* m, mjData* d, double r, double y, double kp, double ki, double kd)
+double myPID(const mjModel* m, mjData* d,
+            double r, double y,
+            double kp, double ki, double kd,
+            double int_limit=0.06,
+            bool reset_integrator=false)
 {
     static double e_prior = 0; // history of position error
     static double t_prior = 0; // history of time
     static double integral = 0; // integral of error
+
+    // optional integrator reset
+    if (reset_integrator) {
+        integral = 0.0;
+        kd = 0.0; // disable derivative action on reset
+    }
 
     // calculate error
     double e = r - y;
@@ -213,18 +280,29 @@ double myPID(const mjModel* m, mjData* d, double r, double y, double kp, double 
     // calculate derivative of error
     // coarse one-step Euler method for derivative, may need to smooth out 
     // for better performance in the future
-    double de = (e - e_prior) / (d->time - t_prior);
+
+    // time step (guard against zero or negative dt)
+    double dt = d->time - t_prior;
+    if (dt <= 0.0) dt = 0.0;
+
+    // derivative (safe: zero if dt == 0)
+    double de = (dt > 0.0) ? (e - e_prior) / dt : 0.0;
+
+    // update integral with anti-windup (clamp to +-int_limit if int_limit>0)
+    integral += e * dt;
+    if (int_limit > 0.0) {
+        if (integral > int_limit) integral = int_limit;
+        else if (integral < -int_limit) integral = -int_limit;
+    }
+
+    // calculate control signal
+    double effort = kp * e + kd * de + ki * integral;
 
     // update history
     e_prior = e;
     t_prior = d->time;
 
-    integral += e * (d->time - t_prior); // approximate integral using rectangle method
-
-    // calculate control signal
-    double ctrl = kp * e + kd * de + ki * integral;
-
-    return ctrl;
+    return effort;
 }
 
 //**************************
@@ -241,6 +319,7 @@ void myPIDcontroller(const mjModel* m, mjData* d)
     double kp = 600e-3; // proportional gain
     double kd = 20e-3; // derivative gain
     double ki = 60e-3; // integral gain
+    double integrator_limit = 0.5; // <-- integrator limit (tune as needed)
 
     static double last_update = 0.0; // last time the control was updated
     
@@ -252,7 +331,7 @@ void myPIDcontroller(const mjModel* m, mjData* d)
         // d->ctrl[1] = -d->ctrl[0];   // apply the inverse control to both wheels 
 
         // method-based PID controller
-        double ctrl = myPID(m, d, r, xtheta, kp, ki, kd);
+        double ctrl = myPID(m, d, r, xtheta, kp, ki, kd, integrator_limit);
         d->ctrl[0] = -ctrl; // apply control to the first actuator (left wheel)
         d->ctrl[1] = ctrl; // apply control to the second actuator (right wheel)
 
@@ -343,7 +422,8 @@ void mySSPdesired_controller(const mjModel* m, mjData* d)
     double xtheta = euler[0]; // use the roll (x-axis) angle as the pendulum angle
 
     static double last_update = 0.0; // last time the control was updated
-    
+    static RampFilter offset_ramp;
+
     // guard check to update control at a fixed frequency
     if (d->time - last_update >= 1.0 / ctrl_update_freq)
     {
@@ -357,11 +437,26 @@ void mySSPdesired_controller(const mjModel* m, mjData* d)
         x[2] = -(xtheta + 0.058508);           // pendulum angle, offset so that CoM is over pivot point
         x[3] = -d->qvel[3]; // pendulum x-axis angular velocity TODO: use sensordata gyro + accelerometer to get angular velocity
         // matrix multiplication
-        double xd[4] = {0, 0, 0, 0}; // desired state vector
+
+        double xd0 = square_wave(d->time, 40.0, 0.2);
+        double integrator_limit = 0.02; // anti-windup limit for PID position controller        double raw_offset = myPID(m, d, xd[0], x[0], 0.6, 0.3, 1, integrator_limit); // use PID to determine desired angle offset based on position error
+        
+        static double prev_xd0 = 0.0;
+        const double integral_eps = 1e-6;
+        bool reset_integrator = (std::fabs(xd0 - prev_xd0) > integral_eps);
+        prev_xd0 = xd0;
+        double xd[4] = {xd0, 0, 0, 0}; // desired state vector
+        double raw_offset = myPID(m, d, xd[0], x[0], 0.3, 0, 0.8, integrator_limit, reset_integrator);
+
+        double ramp_time = 12.0 / ctrl_update_freq; // 12 controller periods -> 0.1s when ctrl_update_freq==100
+        // threshold to detect meaningful changes in offset command, to start a new ramp. otherwise will update offset every control step
+        double eps = 0.1; 
+        double offset_theta = offset_ramp.update(d->time, raw_offset, ramp_time, eps);
         double ctrl = -K_ssp_desired[0] * (x[0] - xd[0])
                     - K_ssp_desired[1] * (x[1] - xd[1])
-                    - K_ssp_desired[2] * (x[2] - xd[2])
+                    - K_ssp_desired[2] * (x[2] - xd[2] - offset_theta) // add position control offset to desired angle
                     - K_ssp_desired[3] * (x[3] - xd[3]);
+        std::cout << "control: " << ctrl << ", cart pos: " << x[0] << ", desired pos: " << xd[0] << ", offset_theta: " << offset_theta << std::endl;
 
         d->ctrl[0] = -ctrl/2; // apply control to the first actuator (left wheel, when looking from battery side)
         d->ctrl[1] = ctrl/2; // apply control to the second actuator (right wheel)
