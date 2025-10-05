@@ -315,7 +315,7 @@ void myPIDcontroller(const mjModel* m, mjData* d)
     // mjtNum quat[4] = {d->qpos[3], d->qpos[4], d->qpos[5], d->qpos[6]}; // using actual angle of pendulum
     mjtNum quat[4] = {d->sensordata[0], d->sensordata[1], d->sensordata[2], d->sensordata[3]}; // using sensed angle of pendulum
     QuaternionToEuler(quat, euler);
-    double xtheta = euler[0]; // use the roll (x-axis) angle as the pendulum angle
+    double xtheta = euler[0] + 0.060508; // use the roll (x-axis) angle as the pendulum angle
     double kp = 600e-3; // proportional gain
     double kd = 20e-3; // derivative gain
     double ki = 60e-3; // integral gain
@@ -332,8 +332,12 @@ void myPIDcontroller(const mjModel* m, mjData* d)
 
         // method-based PID controller
         double ctrl = myPID(m, d, r, xtheta, kp, ki, kd, integrator_limit);
-        d->ctrl[0] = -ctrl; // apply control to the first actuator (left wheel)
-        d->ctrl[1] = ctrl; // apply control to the second actuator (right wheel)
+
+        double distanceDiff = -d->sensordata[13] - d->sensordata[14]; // left wheel - right wheel
+        const double DISTANCE_DIFF_RESPONSE = 0.005; // tune as needed
+
+        d->ctrl[0] = -ctrl/2 + distanceDiff * DISTANCE_DIFF_RESPONSE / 100; // apply control to the first actuator (left wheel)
+        d->ctrl[1] = ctrl/2 + distanceDiff * DISTANCE_DIFF_RESPONSE / 100; // apply control to the second actuator (right wheel)
 
         last_update = d->time;
     }
